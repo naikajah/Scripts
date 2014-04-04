@@ -253,7 +253,7 @@ fi
 echo $'\n' >> $(hostname).txt
 ##Checking BMC status -- LIN-IQ-18
 echo "BMC agent : " >> $(hostname).txt
-ps -ef | grep PatrolAgents
+ps -ef | grep -v grep | grep PatrolAgents
 result=$?
 
 if [[ "${result}" -eq 0 ]];
@@ -266,7 +266,7 @@ fi
 echo $'\n' >> $(hostname).txt
 ##Checking TSM status -- LIN-IQ-19
 echo "TSM agent : " >> $(hostname).txt
-ps -ef | grep tsm
+ps -ef | grep -v grep | grep tsm
 result=$?
 
 if [[ "${result}" -eq 0 ]];
