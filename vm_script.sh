@@ -56,7 +56,7 @@ then
 	then
 		echo "telnet is Disabled" >> $(hostname).txt
 	else
-		echo "telnet is Enabled" >> $(hostname)p.txt
+		echo "telnet is Enabled" >> $(hostname).txt
 	fi
 else
 	echo "telnet is Disabled" >> $(hostname).txt
@@ -112,17 +112,201 @@ do
 	echo $driver >> $(hostname).txt
 done
 
-##Copy output file vm_check_op.txt to Dev server
-os_ver=$(uname -m)
-if [[ "$os_ver" == "x86_64" ]]; 
+echo $'\n' >> $(hostname).txt
+##Image Deployment error test
+echo "Image Deployment error: ">> $(hostname).txt
+dmesg=$(grep -i error  /var/log/dmesg)
+op1=$?
+btlg=$(grep -i error  /var/log/boot.log)
+op2=$?
+ana=$(grep -i error  /var/log/anaconda.log)
+op3=$?
+if [[ $op1 -ne 0 && $op2 -ne 0 && $op3 -ne 0 ]]
 then
-	wget http://pkgs.repoforge.org/sshpass/sshpass-1.05-1.el3.rf.x86_64.rpm
-	rpm -Uvh sshpass-1.05-1.el3.rf.x86_64.rpm
-	sshpass -p Passw0rd scp -r -o StrictHostKeyChecking=no $(hostname).txt admin@50.97.195.66:/home/admin/vmcheck_op_dir
-	rm -rf sshpass-1.05-1.el3.rf.x86_64.rpm
+	echo "No Errors" >> $(hostname).txt
 else
-	wget http://pkgs.repoforge.org/sshpass/sshpass-1.05-1.el6.rf.i686.rpm
-	rpm -Uvh sshpass-1.05-1.el6.rf.i686.rpm
+	echo $dmesg $'\n' $btlg $'\n' $ana>> $(hostname).txt
+fi
+
+
+echo $'\n' >> $(hostname).txt
+## system configuration Check.
+echo "System Configuration : ">> $(hostname).txt
+os=$(lsb_release -a | grep 'Description' | cut -d ':' -f2)
+echo "Operating System :"$os >> $(hostname).txt
+proc=$(grep -c processor /proc/cpuinfo)
+echo "Processor(s) : "$proc >> $(hostname).txt
+cat /proc/cpuinfo | grep "^cpu cores" | uniq >> $(hostname).txt
+cat /var/log/dmesg | grep Memory >> $(hostname).txt
+
+echo $'\n' >> $(hostname).txt
+##Remote root telnet test
+echo "Remote root telnet test : ">> $(hostname).txt
+r_login=$(grep -c 'PermitRootLogin no' /etc/ssh/sshd_config)
+if [[ $r_login -eq 1 ]]
+then
+	echo "PermitRootLogin : No" >> $(hostname).txt
+else
+	echo "PermitRootLogin : Yes" >> $(hostname).txt
+fi
+
+grep tty /etc/securetty
+if [[ $? -eq 0 ]]
+then
+	echo "tty : Fail" >> $(hostname).txt
+else
+	echo "tty : Pass" >> $(hostname).txt
+fi
+
+grep pts /etc/securetty
+if [[ $? -eq 0 ]]
+then
+	echo "pts : Fail" >> $(hostname).txt
+else
+	echo "pts : Pass" >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##Services status test
+echo "Services status test : ">> $(hostname).txt
+finger
+if [[ $? -eq 0 ]]
+then
+	echo "Finger : Running" >> $(hostname).txt
+else
+	echo "Finger : Not Running" >> $(hostname).txt
+fi
+
+anonFTP
+if [[ $? -eq 0 ]]
+then
+	echo "anonFTP : Running" >> $(hostname).txt
+else
+	echo "anonFTP : Not Running" >> $(hostname).txt
+fi
+
+tftp -V
+if [[ $? -eq 0 ]]
+then
+	echo "tftp : Running" >> $(hostname).txt
+else
+	echo "tftp : Not Running" >> $(hostname).txt
+fi
+
+ps aux | grep sendmail
+if [[ $? -eq 0 ]]
+then
+	echo "sendmail : Running" >> $(hostname).txt
+else
+	echo "sendmail : Not Running" >> $(hostname).txt
+fi
+
+rwho
+if [[ $? -eq 0 ]]
+then
+	echo "rwho : Running" >> $(hostname).txt
+else
+	echo "r who: Not Running" >> $(hostname).txt
+fi
+
+netstat
+if [[ $? -eq 0 ]]
+then
+	echo "netstat : Running" >> $(hostname).txt
+else
+	echo "netstat : Not Running" >> $(hostname).txt
+fi
+
+yppasswd
+if [[ $? -eq 0 ]]
+then
+	echo "yppasswd : Running" >> $(hostname).txt
+else
+	echo "yppasswd : Not Running" >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##iptable test:
+rpm -qa | grep iptables
+if [[ $? -eq 0 ]]
+then
+	rpm -e iptables-*
+	echo "iptables : iptables uninstalled/disabled" >> $(hostname).txt
+else
+	echo "iptables : iptables disabled" >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##Compare Swap size to be double of RAM size.
+mem=$(free | awk 'FNR == 2 {print $2}')
+swap=$(cat /proc/swaps | awk 'FNR == 2 {print $3}')
+mem=$((mem+mem))
+if [[ $mem == $swap ]];
+then
+	echo "SWAP Test : Pass" >> $(hostname).txt
+	echo "SWAP size : "$swap >> $(hostname).txt
+else
+	echo "SWAP Test : Fail" >> $(hostname).txt
+	echo "SWAP size : "$swap >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##Checking BMC status -- LIN-IQ-18
+echo "BMC agent : " >> $(hostname).txt
+ps -ef | grep PatrolAgents
+result=$?
+
+if [[ "${result}" -eq 0 ]];
+then
+	echo "BMC agent is installed and running" >> $(hostname).txt
+else
+	echo "BMC agent is corrupt or not installed" >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##Checking TSM status -- LIN-IQ-19
+echo "TSM agent : " >> $(hostname).txt
+ps -ef | grep tsm
+result=$?
+
+if [[ "${result}" -eq 0 ]];
+then
+	echo "tsm agent is installed and running" >> $(hostname).txt
+else
+	echo "tsm agent is corrupt or not installed" >> $(hostname).txt
+fi
+
+echo $'\n' >> $(hostname).txt
+##Checking TSCM status -- LIN-IQ-20
+echo "TSCM agent : " >> $(hostname).txt
+/opt/monitor/tivoli/client/jacclient status
+result=$?
+
+if [[ "${result}" -eq 0 ]];
+then
+	echo "TSCM agent is installed and running" >> $(hostname).txt
+else
+	echo "TSCM agent is corrupt or not installed" >> $(hostname).txt
+fi
+
+
+##Copy output file $(hostname).txt to Dev server
+sshpass
+if [[ $? -eq 0 ]]
+then
 	sshpass -p Passw0rd scp -r -o StrictHostKeyChecking=no $(hostname).txt admin@50.97.195.66:/home/admin/vmcheck_op_dir
-	rm -rf sshpass-1.05-1.el6.rf.i686.rpm
+else
+	os_ver=$(uname -m)
+	if [[ "$os_ver" == "x86_64" ]]; 
+	then
+		wget http://pkgs.repoforge.org/sshpass/sshpass-1.05-1.el3.rf.x86_64.rpm
+		rpm -Uvh sshpass-1.05-1.el3.rf.x86_64.rpm
+		sshpass -p Passw0rd scp -r -o StrictHostKeyChecking=no $(hostname).txt admin@50.97.195.66:/home/admin/vmcheck_op_dir
+		rm -rf sshpass-1.05-1.el3.rf.x86_64.rpm
+	else
+		wget http://pkgs.repoforge.org/sshpass/sshpass-1.05-1.el6.rf.i686.rpm
+		rpm -Uvh sshpass-1.05-1.el6.rf.i686.rpm
+		sshpass -p Passw0rd scp -r -o StrictHostKeyChecking=no $(hostname).txt admin@50.97.195.66:/home/admin/vmcheck_op_dir
+		rm -rf sshpass-1.05-1.el6.rf.i686.rpm
+	fi
 fi
