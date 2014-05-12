@@ -311,7 +311,7 @@ then
 	spawn scp -r -o StrictHostKeyChecking=no $h_name.log root@50.97.254.178:/opt/SimpleSoftlayer/vmcheck_op
 	match_max 100000
 	expect -exact 'admin@50.97.254.178's password: '
-	send -- \"root123\r\"
+	send -- \"Qa8W6gpK\r\"
 	expect eof"
 
 
@@ -322,7 +322,7 @@ else
 	spawn scp -r -o StrictHostKeyChecking=no $h_name.log root@50.97.254.178:/opt/SimpleSoftlayer/vmcheck_op
 	match_max 100000
 	expect -exact 'admin@50.97.254.178's password: '
-	send -- \"root123\r\"
+	send -- \"Qa8W6gpK\r\"
 	expect eof"
 fi
 
