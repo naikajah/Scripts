@@ -51,6 +51,11 @@ else
 fi
 
 echo $'\n' >> $h_name'.log'
+##checking NIC Details
+echo "NIC Details : ">> $h_name'.log'
+lspci | grep -i 'network' >> $h_name'.log'
+
+echo $'\n' >> $h_name'.log'
 ##checking Telnet
 echo "Telnet : ">> $h_name'.log'
 if [ -f /etc/xinetd.d/telnet ];
